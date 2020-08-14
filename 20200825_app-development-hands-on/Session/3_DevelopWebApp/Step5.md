@@ -151,12 +151,14 @@ const layers = map.allLayers.map((layer) => {
     for (let i = 1; i < self.event.target.elements.length; i++) {
       const field = self.event.target.elements[i].id;
       const value = self.event.target.elements[i].value;
+      // 検索条件の設定
       if (value && !searchCondition) {
         searchCondition = field + "=" + "'" + value + "'";
       } else if (value && searchCondition) {
         searchCondition += " AND " + field + "=" + "'" + value + "'";
       }
     }
+    // query オブジェクトの作成
     query = layer.createQuery();
     if (searchCondition) {
       query.where = searchCondition;
@@ -184,6 +186,7 @@ displayWaterSupplyMapResults() 内に対して以下のコードを記述して�
 ```JavaScript
 // Todo: Step5 検索結果をフィーチャ テーブルウィジェットに表示
 const searchResult = document.getElementById("searchResult");
+// 検索結果が存在する場合
 if (results.features.length > 0) {
   searchResult.style.display = "none";
 
@@ -196,13 +199,13 @@ if (results.features.length > 0) {
 
   const panelclose = headingQueryTask.querySelector(".panel-close");
   panelclose.classList.add("visible-xs-flex");
-
+// 検索結果が０件の場合は、処理を終了する
 } else {
   searchResult.style.display = "flex";
   return;
 }
 
-  // フィールド名の作成
+// フィールド名の作成
 const fieldConfigs = [];
 for (let field of results.fields) {
     const fieldName =  {
@@ -300,14 +303,14 @@ const featureIds = highlights.map((result) => {
 });
 // クエリの objectId を設定します。
 query.objectIds = featureIds;
-// ズームするためジオメトリを必ず返すようにします。
+// 目的の場所に移動するためジオメトリを必ず返すようにします。
 query.returnGeometry = true;
-// フィーチャ レイヤーで queryFeatures を呼び出し，結果として得られるフィーチャにズームします．
+// フィーチャ レイヤーで queryFeatures を呼び出し，結果として得られるフィーチャの場所に移動します．
 waterSupplyMapLayer.queryFeatures(query).then((results) => {
     const proj = [];
     projection.load()
         .then(() => {
-            // project メソッドを使用して、平面直角座標系の9系からワールドメルカトルに変換しています。
+            // projection クラス の project メソッドを使用して、平面直角座標系の9系からワールドメルカトルに変換しています。
             for (let feature of results.features) {   
                 const transformation = projection.getTransformation(feature.geometry.spatialReference, mapView.spatialReference);
                 const projgeometry = projection.project(feature.geometry, mapView.spatialReference, transformation);   
@@ -335,8 +338,36 @@ waterSupplyMapLayer.queryFeatures(query).then((results) => {
 });
 ```
 
-すべてのコードの記述後にアプリを実行して、属性検索ウィジェットから任意のテーブルを選択して検索を実行します。以下のような検索実行後の画面が表示されます。
+1件、もしくは複数のフィーチャを選択した場合によって処理を分けています。1件のフィーチャを選択した場合は、その1つの場所にズームし、複数のフィーチャを選択した場合は、すべての位置の合わせた範囲にズームします。フィーチャの移動には、MapView の [goTo](https://developers.arcgis.com/javascript/latest/api-reference/esri-views-MapView.html#goTo) メソッドを使用します。
+
+
+```JavaScript
+let target;
+if (geo.length > 1) {
+  // 複数のフィーチャの場合
+  target = geo;
+} else {
+  // 1件のフィーチャの場合
+  target = {target: geo, zoom: 19};
+}
+// 選択したフィーチャに移動します。
+mapView.goTo(target).catch((error) => {
+  if (error.name != "AbortError") {
+    console.error(error);
+  }
+});
+```          
+
 |<img src="./img/app_step5_2.png" width="600">|
 |:-:|
 
-ハンズオンはここまでです。
+### Step 5 のまとめ
+
+フィーチャの検索としてクエリを使用しました。  
+クエリには、[FeatureLayer](https://developers.arcgis.com/javascript/latest/api-reference/esri-layers-FeatureLayer.html) の queryFeature() メソッドを使用しました。[queryFeatures()](https://developers.arcgis.com/javascript/latest/api-reference/esri-layers-FeatureLayer.html#queryFeatures) メソッドに検索条件の [query](https://developers.arcgis.com/javascript/latest/api-reference/esri-tasks-support-Query.html) オブジェクトを指定することで、FeatureLayer に対して検索を行うことができます。
+
+そして、検索結果の表示には、フィーチャ テーブルウィジェットを使用しました。フィーチャ テーブルウィジェットは、フィーチャ レイヤーのデータをテーブル形式で表示し、テーブルの行を選択したり、属性に基づいてソートしたり、列 (属性) の表示/非表示を選択することもできます。 
+フィーチャ テーブルウィジェットの作成には、[FeatureTable](https://developers.arcgis.com/javascript/latest/api-reference/esri-widgets-FeatureTable.html) クラスを使用しました。
+現在このフィーチャ テーブルウィジェットはベータ版として提供されており、今後も拡張機能が追加されていく予定です。
+
+今回のハンズオンはここまでです。
